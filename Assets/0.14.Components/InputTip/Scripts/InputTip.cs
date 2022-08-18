@@ -74,6 +74,7 @@ public class InputTip : MonoBehaviour
         itemData = dataDic;
         CreateTipItem(dataDic);
     }
+    #endregion
 
     /// <summary>
     /// Tip点击方法
@@ -83,7 +84,6 @@ public class InputTip : MonoBehaviour
     {
 
     }
-    #endregion
 
     /// <summary>
     /// InputField添加点击事件
