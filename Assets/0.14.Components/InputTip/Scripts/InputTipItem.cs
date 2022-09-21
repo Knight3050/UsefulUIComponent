@@ -8,6 +8,8 @@ public class InputTipItem : MonoBehaviour
     private Button itemButton;
     [SerializeField]
     private Image checkMark;
+    private Color selectColor;
+    private Color unSelectColor;
 
     private KeyValuePair<string, string> label;
     public KeyValuePair<string, string> Label
@@ -19,52 +21,69 @@ public class InputTipItem : MonoBehaviour
                 itemText = GetComponentInChildren<Text>();
             }
             itemText.text = value.Value;
+            // itemText.color = unSelectColor;
             label = value;
         }
         get { return label; }
     }
 
-    private int clickCount = 0;
-    public int ClickCount
+    private bool ison = false;
+    public bool isOn
     {
         set
         {
-            clickCount = value;
-            MultipleInputTip inputTip = GetComponentInParent<MultipleInputTip>();
-            if (value % 2 == 1)
-            {
-                inputTip.OnItemClick(this);
-            }
-            else
-            {
-                inputTip.DestroyButton(label);
-            }
-            checkMark.gameObject.SetActive(value % 2 == 1);
+            ison = value;
+            checkMark.gameObject.SetActive(value);
+            itemText.color = (value ? selectColor : unSelectColor);
         }
         get
         {
-            return clickCount;
+            return ison;
         }
     }
 
-    public void InitItem(bool isMutiple, KeyValuePair<string, string> data)
+    public void InitItem(InputTip inputTip, bool isMutiple, Color selectColor, Color unSelectColor)
     {
-        Label = data;
-        // clickCount = 0;
+        this.selectColor = selectColor;
+        this.unSelectColor = unSelectColor;
+
         if (itemButton == null)
         {
             itemButton = GetComponentInChildren<Button>();
         }
 
-        itemButton.onClick.RemoveAllListeners();
+        // itemButton.onClick.RemoveAllListeners();
         if (isMutiple)
         {
-            itemButton.onClick.AddListener(delegate { ClickCount++; });
+            MultipleInputTip multiInputTip = (MultipleInputTip)inputTip;
+            itemButton.onClick.AddListener(delegate
+            {
+                isOn = !isOn;
+                if (isOn)
+                {
+                    multiInputTip.OnItemClick(this);
+                }
+                else
+                {
+                    multiInputTip.DestroyButton(label);
+                }
+            });
         }
         else
         {
-            SingleInputTip inputTip = GetComponentInParent<SingleInputTip>();
-            itemButton.onClick.AddListener(delegate { inputTip.OnItemClick(this); });
+            SingleInputTip singleInputTip = (SingleInputTip)inputTip;
+            // SingleInputTip inputTip = GetComponentInParent<SingleInputTip>();
+            itemButton.onClick.AddListener(delegate
+            {
+                // Debug.Log(inputTip.name);
+                // isOn = !isOn;
+                singleInputTip.OnItemClick(this);
+            });
         }
+    }
+
+    public void SetLabel(KeyValuePair<string, string> data)
+    {
+        Label = data;
     }
 }

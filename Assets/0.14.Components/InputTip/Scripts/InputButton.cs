@@ -10,14 +10,22 @@ public class InputButton : MonoBehaviour
     private Button clearBtn;
     private KeyValuePair<string, string> data;
 
-    public void InitInputButton(KeyValuePair<string, string> value)
+    public void InitInputButton(MultipleInputTip multipleInput)
+    {
+        // MultipleInputTip multipleInput = GetComponentInParent<MultipleInputTip>();
+        clearBtn.onClick.RemoveAllListeners();
+        // Debug.Log(multipleInput.GetInputTipItem(value.Key).isOn);
+        clearBtn.onClick.AddListener(delegate
+        {
+            multipleInput.GetInputTipItem(data.Key).isOn = false;
+            multipleInput.DestroyButton(this);
+        });
+    }
+
+    public void SetLabel(KeyValuePair<string, string> value)
     {
         data = value;
         labelTxt.text = value.Value;
-        MultipleInputTip multipleInput = GetComponentInParent<MultipleInputTip>();
-        clearBtn.onClick.RemoveAllListeners();
-        // Debug.Log(multipleInput.GetInputTipItem(value.Key).name);
-        clearBtn.onClick.AddListener(delegate { multipleInput.GetInputTipItem(value.Key).ClickCount = 2; });
     }
 
     public KeyValuePair<string, string> GetData()

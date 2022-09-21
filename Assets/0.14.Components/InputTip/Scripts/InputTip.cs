@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using System;
 
-[RequireComponent(typeof(Blocker))]
 public class InputTip : MonoBehaviour
 {
     [Header("条目模板")]
@@ -13,13 +13,24 @@ public class InputTip : MonoBehaviour
     [Header("当前是否可以多选")]
     [SerializeField]
     protected bool isMutiple;
+    [Header("未选中时tip文字颜色")]
+    [SerializeField]
+    private Color unselectColor;
+    [Header("选中时tip文字颜色")]
+    [SerializeField]
+    private Color selectColor;
 
+    //箭头图片
+    protected Image arrowImg;
     //输入框
     protected InputField input;
     //TipView
     private ScrollRect content;
-    //箭头图片
-    protected Image arrowImg;
+
+    protected Action callback;
+
+    private GameObject m_Blocker;
+    Canvas rootCanvas;
 
     #region 条目生成池
     protected List<InputTipItem> leftTipItems = new List<InputTipItem>();
@@ -35,6 +46,7 @@ public class InputTip : MonoBehaviour
     {
         set
         {
+            // Debug.Log(content.name);
             arrowImg.transform.localScale = new Vector3(1, 1 * (value ? (-1) : (1)), 1);
             content.gameObject.SetActive(value);
         }
@@ -44,34 +56,38 @@ public class InputTip : MonoBehaviour
     /// <summary>
     /// 初始化
     /// </summary>
-    public virtual void InitInputTip()
+    public virtual void InitInputTip(Action callback = null)
     {
         content = GetComponentInChildren<ScrollRect>();
         input = GetComponentInChildren<InputField>();
+
+        // Debug.Log(content.name + ";;;;" + input.name);
         arrowImg = this.transform.Find("Arrow").GetComponent<Image>();
-        isShowContent = false;
+        Hide();
         AddInputNameClickEvent();
         itemData.Clear();
         input.onValueChanged.AddListener(InputOnValueChanged);
+        this.callback = callback;
     }
 
     /// <summary>
     /// 初始化【含数据
     /// </summary>
     /// <param name="dataList"></param>
-    public virtual void InitInputTip(Dictionary<string, string> dataDic)
+    public virtual void InitInputTip(Dictionary<string, string> dataDic, Action callback = null)
     {
-        InitInputTip();
+        InitInputTip(callback);
         SetValue(dataDic);
     }
 
     /// <summary>
-    /// 刷新数据
+    /// 刷新tip数据
     /// </summary>
     /// <param name="dataList"></param>
     public virtual void SetValue(Dictionary<string, string> dataDic)
     {
         itemData = dataDic;
+        // Debug.Log("Init");
         CreateTipItem(dataDic);
     }
     #endregion
@@ -106,11 +122,17 @@ public class InputTip : MonoBehaviour
     /// 点击InputField事件
     /// </summary>
     /// <param name="data"></param>
-    private void OnInputFieldClicked(BaseEventData data)
+    protected virtual void OnInputFieldClicked(BaseEventData data)
     {
-        input.text = "";
-        isShowContent = true;
-        SetValue(itemData);
+        if (isMutiple)
+        {
+            input.text = " ";
+        }
+        Show();
+
+        // Debug.Log("ClickInputField");
+        CreateTipItem(itemData);
+
     }
 
     /// <summary>
@@ -119,7 +141,16 @@ public class InputTip : MonoBehaviour
     /// <param name="value"></param>
     private void InputOnValueChanged(string value)
     {
-        isShowContent = !string.IsNullOrEmpty(value);
+        if (string.IsNullOrEmpty(value))
+        {
+            Hide();
+        }
+        else
+        {
+            Show();
+        }
+
+        // Debug.Log("onValueChanged");
 
         CreateTipItem(FilterString(value));
     }
@@ -131,7 +162,7 @@ public class InputTip : MonoBehaviour
     protected void OnEndEdit(string value)
     {
         input.text = value;
-        isShowContent = false;
+        Hide();
     }
 
     /// <summary>
@@ -144,13 +175,136 @@ public class InputTip : MonoBehaviour
         Dictionary<string, string> filterStr = new Dictionary<string, string>();
         foreach (var item in itemData)
         {
-            if (item.Value.Contains(value))
+            if (item.Value.Contains(value.Trim()))
             {
                 filterStr.Add(item.Key, item.Value);
             }
         }
         return filterStr;
     }
+
+    #region blocker
+    protected virtual void Hide()
+    {
+        isShowContent = false;
+
+        if (m_Blocker != null)
+            DestroyBlocker(m_Blocker);
+        m_Blocker = null;
+        // Select();
+    }
+
+    protected virtual void Show()
+    {
+        isShowContent = true;
+        if (m_Blocker != null)
+        {
+            return;
+        }
+        var list = new List<Canvas>();
+        gameObject.GetComponentsInParent(false, list);
+        if (list.Count == 0)
+            return;
+        // case 1064466 rootCanvas should be last element returned by GetComponentsInParent()
+        var listCount = list.Count;
+        rootCanvas = list[listCount - 1];
+        for (int i = 0; i < listCount; i++)
+        {
+            if (list[i].isRootCanvas || list[i].overrideSorting)
+            {
+                rootCanvas = list[i];
+                break;
+            }
+        }
+
+        m_Blocker = CreateBlocker(rootCanvas);
+    }
+
+    /// <summary>
+    /// Create a blocker that blocks clicks to other controls while the dropdown list is open.
+    /// </summary>
+    /// <remarks>
+    /// Override this method to implement a different way to obtain a blocker GameObject.
+    /// </remarks>
+    /// <param name="rootCanvas">The root canvas the dropdown is under.</param>
+    /// <returns>The created blocker object</returns>
+    protected virtual GameObject CreateBlocker(Canvas rootCanvas)
+    {
+        // Create blocker GameObject.
+        GameObject blocker = new GameObject("Blocker");
+
+        // Setup blocker RectTransform to cover entire root canvas area.
+        RectTransform blockerRect = blocker.AddComponent<RectTransform>();
+        blockerRect.SetParent(rootCanvas.transform, false);
+        blockerRect.anchorMin = Vector3.zero;
+        blockerRect.anchorMax = Vector3.one;
+        blockerRect.sizeDelta = Vector2.zero;
+
+        // Make blocker be in separate canvas in same layer as dropdown and in layer just below it.
+        Canvas blockerCanvas = blocker.AddComponent<Canvas>();
+        blockerCanvas.overrideSorting = true;
+        //放置到最外层，防止无法点击
+        blockerCanvas.sortingOrder = 29999;
+        //Canvas dropdownCanvas = m_Dropdown.GetComponent<Canvas>();
+        //blockerCanvas.sortingLayerID = dropdownCanvas.sortingLayerID;
+        //blockerCanvas.sortingOrder = dropdownCanvas.sortingOrder - 1;
+
+        // Find the Canvas that this dropdown is a part of
+        Canvas parentCanvas = null;
+        Transform parentTransform = content.transform.parent;
+        while (parentTransform != null)
+        {
+            parentCanvas = parentTransform.GetComponent<Canvas>();
+            if (parentCanvas != null)
+                break;
+
+            parentTransform = parentTransform.parent;
+        }
+
+        // If we have a parent canvas, apply the same raycasters as the parent for consistency.
+        if (parentCanvas != null)
+        {
+            Component[] components = parentCanvas.GetComponents<BaseRaycaster>();
+            for (int i = 0; i < components.Length; i++)
+            {
+                Type raycasterType = components[i].GetType();
+                if (blocker.GetComponent(raycasterType) == null)
+                {
+                    blocker.AddComponent(raycasterType);
+                }
+            }
+        }
+        else
+        {
+            // Add raycaster since it's needed to block.
+            GetOrAddComponent<GraphicRaycaster>(blocker);
+        }
+
+
+        // Add image since it's needed to block, but make it clear.
+        Image blockerImage = blocker.AddComponent<Image>();
+        blockerImage.color = Color.clear;
+
+        // Add button since it's needed to block, and to close the dropdown when blocking area is clicked.
+        Button blockerButton = blocker.AddComponent<Button>();
+        blockerButton.onClick.AddListener(Hide);
+
+        return blocker;
+    }
+
+    protected virtual void DestroyBlocker(GameObject blocker)
+    {
+        Destroy(blocker);
+    }
+
+    private static T GetOrAddComponent<T>(GameObject go) where T : Component
+    {
+        T comp = go.GetComponent<T>();
+        if (!comp)
+            comp = go.AddComponent<T>();
+        return comp;
+    }
+    #endregion
 
     #region 操作下拉框内容模板
     /// <summary>
@@ -164,12 +318,21 @@ public class InputTip : MonoBehaviour
         GameObject ob = null;
         if (leftTipItems.Count > 0)
         {
-            ob = leftTipItems[0].gameObject;
+            for (int i = 0; i < leftTipItems.Count; i++)
+            {
+                if (leftTipItems[i].Label.Key.Equals(data.Key))
+                {
+                    ob = leftTipItems[i].gameObject;
+                    continue;
+                }
+            }
+            // ob = leftTipItems[0].gameObject;
         }
 
         if (ob == null)
         {
             ob = Instantiate(itemTemplate);
+            ob.GetComponent<InputTipItem>().InitItem(this, isMutiple, selectColor, unselectColor);
         }
         else
         {
@@ -181,7 +344,7 @@ public class InputTip : MonoBehaviour
         ob.transform.localPosition = Vector3.zero;
         ob.transform.localScale = Vector3.one;
         usingTipItems.Add(ob.GetComponent<InputTipItem>());
-        ob.GetComponent<InputTipItem>().InitItem(isMutiple, data);
+        ob.GetComponent<InputTipItem>().SetLabel(data);
         return ob.GetComponent<InputTipItem>();
     }
 
@@ -194,6 +357,7 @@ public class InputTip : MonoBehaviour
         DestroyItemView();
         foreach (var item in dataDic)
         {
+            // Debug.Log(item.Key);
             CreateTipItem(item);
         }
     }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,16 +17,30 @@ public class MultipleInputTip : InputTip
     #region 生成池
     private List<InputButton> leftInputButton = new List<InputButton>();
     private List<InputButton> usingInputButton = new List<InputButton>();
+    private int rowCount;
+    private float rectx, recty;
     #endregion
 
     #region 方法
     /// <summary>
     /// 初始化
     /// </summary>
-    public override void InitInputTip()
+    public override void InitInputTip(Action callback)
     {
-        base.InitInputTip();
+        base.InitInputTip(callback);
         input.interactable = false;
+        input.onValueChanged.RemoveAllListeners();
+
+        rowCount = itemBtnList.GetComponent<GridLayoutGroup>().constraintCount;
+        rectx = this.GetComponent<RectTransform>().sizeDelta.x;
+        recty = this.GetComponent<RectTransform>().sizeDelta.y;
+    }
+
+    public override void SetValue(Dictionary<string, string> dataDic)
+    {
+        base.SetValue(dataDic);
+        // this.GetComponent<RectTransform>().sizeDelta = new Vector2(rectx, recty);
+        // DestroyAllButton();
     }
 
     /// <summary>
@@ -35,12 +50,43 @@ public class MultipleInputTip : InputTip
     public override void OnItemClick(InputTipItem item)
     {
         CreateInputButton(item.Label);
+        input.text = " ";
         LayoutRebuilder.ForceRebuildLayoutImmediate(itemBtnList.GetComponent<RectTransform>());
-        input.GetComponent<RectTransform>().sizeDelta =
-        new Vector2(itemBtnList.GetComponent<RectTransform>().sizeDelta.x + arrowImg.rectTransform.sizeDelta.x,
-        itemBtnList.GetComponent<RectTransform>().sizeDelta.y);
-        this.GetComponent<RectTransform>().sizeDelta = input.GetComponent<RectTransform>().sizeDelta;
+        this.GetComponent<RectTransform>().sizeDelta = new Vector2(rectx,
+        (usingInputButton.Count % rowCount == 0 ? usingInputButton.Count / rowCount : usingInputButton.Count / rowCount + 1) * recty);
+        // this.GetComponent<RectTransform>().sizeDelta = input.GetComponent<RectTransform>().sizeDelta;
+        callback?.Invoke();
         base.OnItemClick(item);
+    }
+
+    /// <summary>
+    /// 设置已选中数据
+    /// /// </summary>
+    /// <param name="dataDic"></param>
+    public void SetSelectData(List<string> keys)
+    {
+        DestroyAllButton();
+        if (keys.Count > 0)
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                // Debug.Log(keys[i]);
+                if (GetTipButton(keys[i]))
+                {
+                    continue;
+                }
+                InputTipItem tipItem = GetInputTipItem(keys[i]);
+                if (tipItem != null)
+                {
+                    tipItem.isOn = true;
+                    OnItemClick(tipItem);
+                }
+                else
+                {
+                    Debug.Log("null");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -57,6 +103,18 @@ public class MultipleInputTip : InputTip
         return resultDic;
     }
     #endregion
+
+    protected override void Hide()
+    {
+        itemBtnList.GetComponent<Canvas>().sortingOrder = 10;
+        base.Hide();
+    }
+
+    protected override void Show()
+    {
+        itemBtnList.GetComponent<Canvas>().sortingOrder = 30000;
+        base.Show();
+    }
 
     /// <summary>
     /// 根据key获取条目物体
@@ -93,6 +151,7 @@ public class MultipleInputTip : InputTip
         if (ob == null)
         {
             ob = Instantiate(buttonTemplate);
+            ob.GetComponent<InputButton>().InitInputButton(this);
         }
         else
         {
@@ -104,7 +163,7 @@ public class MultipleInputTip : InputTip
         ob.transform.localPosition = Vector3.zero;
         ob.transform.localScale = Vector3.one;
         usingInputButton.Add(ob.GetComponent<InputButton>());
-        ob.GetComponent<InputButton>().InitInputButton(value);
+        ob.GetComponent<InputButton>().SetLabel(value);
 
         // input.GetComponent<RectTransform>().sizeDelta = itemBtnList.GetComponent<RectTransform>().sizeDelta;
         return ob.GetComponent<InputButton>();
@@ -123,15 +182,20 @@ public class MultipleInputTip : InputTip
 
         if (usingInputButton.Count == 0)
         {
-            itemBtnList.GetComponent<RectTransform>().sizeDelta =
-            new Vector2(itemBtnList.GetComponent<RectTransform>().sizeDelta.x,
-            buttonTemplate.GetComponent<RectTransform>().sizeDelta.y);
+            input.text = string.Empty;
+            this.GetComponent<RectTransform>().sizeDelta = new Vector2(rectx, recty);
+        }
+        else
+        {
+            this.GetComponent<RectTransform>().sizeDelta = new Vector2(rectx,
+            (usingInputButton.Count % rowCount == 0 ? usingInputButton.Count / rowCount : usingInputButton.Count / rowCount + 1) * recty);
         }
 
-        input.GetComponent<RectTransform>().sizeDelta =
-        new Vector2(itemBtnList.GetComponent<RectTransform>().sizeDelta.x + arrowImg.rectTransform.sizeDelta.x,
-        itemBtnList.GetComponent<RectTransform>().sizeDelta.y);
-        this.GetComponent<RectTransform>().sizeDelta = input.GetComponent<RectTransform>().sizeDelta;
+        callback?.Invoke();
+        // input.GetComponent<RectTransform>().sizeDelta =
+        // new Vector2(itemBtnList.GetComponent<RectTransform>().sizeDelta.x + arrowImg.rectTransform.sizeDelta.x,
+        // itemBtnList.GetComponent<RectTransform>().sizeDelta.y);
+        // this.GetComponent<RectTransform>().sizeDelta = input.GetComponent<RectTransform>().sizeDelta;
     }
 
     public void DestroyButton(KeyValuePair<string, string> value)
@@ -150,12 +214,37 @@ public class MultipleInputTip : InputTip
     /// </summary>
     private void DestroyAllButton()
     {
-        for (var i = 0; i < usingInputButton.Count; i++)
+        if (usingInputButton.Count > 0)
         {
-            usingInputButton[i].gameObject.SetActive(false);
-            leftInputButton.Add(usingInputButton[i]);
+            for (var i = 0; i < usingInputButton.Count; i++)
+            {
+                usingInputButton[i].gameObject.SetActive(false);
+                leftInputButton.Add(usingInputButton[i]);
+            }
+            usingInputButton.Clear();
         }
-        usingInputButton.Clear();
+
+        this.GetComponent<RectTransform>().sizeDelta = new Vector2(rectx, recty);
+
+        for (int i = 0; i < usingTipItems.Count; i++)
+        {
+            usingTipItems[i].isOn = false;
+        }
+    }
+
+    private InputButton GetTipButton(string key)
+    {
+        if (usingInputButton.Count > 0)
+        {
+            for (int i = 0; i < usingInputButton.Count; i++)
+            {
+                if (usingInputButton[i].GetData().Key.Equals(key))
+                {
+                    return usingInputButton[i];
+                }
+            }
+        }
+        return null;
     }
     #endregion
 }

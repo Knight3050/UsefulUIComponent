@@ -22,14 +22,6 @@ public class Inputtest : MonoBehaviour
         multipleInputTip.InitInputTip(strList);
     }
 
-    private void Update()
-    {
-        // if (Input.GetKey(KeyCode.Space))
-        // {
-        //     Debug.Log(multipleInputTip.ReturnSelectData().Count);
-        // }
-    }
-
     [ContextMenu("七夕青蛙特供")]
     private void ValentineFrog()
     {
@@ -58,5 +50,12 @@ public class Inputtest : MonoBehaviour
         {
             Debug.Log(item.Key + ";;;;;" + item.Value);
         }
+    }
+
+    [ContextMenu("设置多选数据显示")]
+    private void SetMultipleData()
+    {
+        List<string> keys = new List<string>() { "1", "3", "5" };
+        multipleInputTip.SetSelectData(keys);
     }
 }

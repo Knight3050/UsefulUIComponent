@@ -60,6 +60,7 @@ public class Switch : MonoBehaviour
         this.openStr = openStr;
         this.closeStr = closeStr;
         toggle = this.GetComponent<Toggle>();
+        toggle.isOn = false;
         images = GetComponentsInChildren<Image>();
         content = this.GetComponentInChildren<Text>();
         handleSize = images[1].GetComponent<RectTransform>().sizeDelta.x;
@@ -67,6 +68,7 @@ public class Switch : MonoBehaviour
         parentSize = GetComponent<RectTransform>().sizeDelta.x;
         toggle.onValueChanged.AddListener(ValueChange);
         SetStatus(isNeedCallback, false);
+        ChangeColor(false);
     }
 
     /// <summary>
@@ -77,7 +79,9 @@ public class Switch : MonoBehaviour
     public void SetStatus(bool isOn, bool isNeedCallback)
     {
         this.isNeedCallback = isNeedCallback;
+
         toggle.isOn = isOn;
+        this.isNeedCallback = true;
     }
 
     /// <summary>
@@ -131,7 +135,7 @@ public class Switch : MonoBehaviour
     /// <param name="isOn"></param>
     private void ValueChange(bool isOn)
     {
-        // Debug.Log(isNeedCallback);
+        //Debug.Log(isNeedCallback);
         if (moveCoroutine != null)
         {
             StopCoroutine(moveCoroutine);
@@ -147,6 +151,8 @@ public class Switch : MonoBehaviour
             isNeedCallback = true;
             return;
         }
+
+        // Debug.Log(isOn);
         onValueChanged?.Invoke(isOn);
     }
 
