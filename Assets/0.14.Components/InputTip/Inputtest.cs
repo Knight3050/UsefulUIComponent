@@ -15,7 +15,7 @@ public class Inputtest : MonoBehaviour
         Dictionary<string, string> strList = new Dictionary<string, string>();
         for (var i = 0; i < 10; i++)
         {
-            strList.Add(i.ToString(), i.ToString() + ";;;" + Random.Range(0, 10).ToString());
+            strList.Add(i.ToString(), i.ToString() + ";;;" + (i + 3).ToString());
         }
 
         inputTip.InitInputTip(strList);
@@ -41,6 +41,12 @@ public class Inputtest : MonoBehaviour
     private void GetSingleData()
     {
         Debug.Log(inputTip.ReturnSelectData().Key + ":::::" + inputTip.ReturnSelectData().Value);
+    }
+
+    [ContextMenu("设置单选数据显示")]
+    private void SetSingleData()
+    {
+        inputTip.SetSelectData("4");
     }
 
     [ContextMenu("获取多选数据")]
